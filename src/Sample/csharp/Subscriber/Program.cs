@@ -16,7 +16,7 @@ internal static partial class Program
 
         var factory = new QueueFactory(loggerFactory);
 
-        // Create a message queue publisher
+        // Create a message queue subscriber
 
         var options = new QueueOptions(
             queueName: "sample-queue",

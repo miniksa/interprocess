@@ -99,7 +99,7 @@ int main()
         std::cout << "2. Permissions issue with the queue creation" << std::endl;
         std::cout << "3. Another process has the queue locked" << std::endl;
         std::cout << std::endl;
-        std::cout << "Make sure no other publisher is running on the same queue." << std::endl;
+        std::cout << "Check that no other process is using the same queue name with conflicting settings." << std::endl;
         return 1;
     }
     

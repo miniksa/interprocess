@@ -3,122 +3,12 @@
 #include <chrono>
 #include <vector>
 #include <span>
-#include <cstring>
+#include <memory>
 #include "QueueOptions.h"
-#include "Queue.h"
+#include "QueueFactory.h"
 #include "ISubscriber.h"
-#include "CircularBuffer.h"
-#include "QueueHeader.h"
-#include "MessageHeader.h"
 
 using namespace Cloudtoid::Interprocess;
-
-// Complete Subscriber implementation that mirrors the C# version
-class Subscriber : public Queue, public ISubscriber
-{
-public:
-    explicit Subscriber(const QueueOptions& options) : Queue(options) {}
-
-    bool TryDequeue(std::span<unsigned char> buffer, std::span<unsigned char>& message) override
-    {
-        try
-        {
-            auto* header = GetHeader();
-            if (header == nullptr)
-            {
-                message = std::span<unsigned char>();
-                return false;
-            }
-
-            // Check if there are any messages available (using public fields)
-            if (header->IsEmpty())
-            {
-                message = std::span<unsigned char>();
-                return false;
-            }
-
-            // Get the current read position
-            auto readPosition = header->ReadOffset;
-
-            // Read the message header - using CircularBuffer::Read method
-            std::vector<unsigned char> headerBuffer(sizeof(MessageHeader));
-            auto headerData = _buffer->Read(readPosition, sizeof(MessageHeader), std::span<unsigned char>(headerBuffer));
-            if (headerData.size() < sizeof(MessageHeader))
-            {
-                message = std::span<unsigned char>();
-                return false;
-            }
-
-            // Copy the header data to a MessageHeader struct
-            MessageHeader messageHeader(0, 0); // Default constructor
-            std::memcpy(&messageHeader, headerData.data(), sizeof(MessageHeader));
-
-            // Calculate message body length
-            auto bodyLength = static_cast<size_t>(messageHeader.BodyLength);
-            if (bodyLength == 0 || bodyLength > buffer.size())
-            {
-                // Skip this message if it's empty or too large for the buffer
-                auto paddedLength = GetPaddedMessageLength(bodyLength);
-                header->ReadOffset = SafeIncrementMessageOffset(readPosition, paddedLength);
-                message = std::span<unsigned char>();
-                return false;
-            }
-
-            // Read the message body
-            auto bodyOffset = GetMessageBodyOffset(readPosition);
-            std::vector<unsigned char> bodyBuffer(bodyLength);
-            auto bodyData = _buffer->Read(bodyOffset, bodyLength, std::span<unsigned char>(bodyBuffer));
-            if (bodyData.size() < bodyLength)
-            {
-                message = std::span<unsigned char>();
-                return false;
-            }
-
-            // Copy the body data to the buffer
-            std::memcpy(buffer.data(), bodyData.data(), bodyLength);
-
-            // Update the read position
-            auto paddedLength = GetPaddedMessageLength(bodyLength);
-            header->ReadOffset = SafeIncrementMessageOffset(readPosition, paddedLength);
-
-            // Return the message span
-            message = std::span<unsigned char>(buffer.data(), bodyLength);
-            return true;
-        }
-        catch (...)
-        {
-            message = std::span<unsigned char>();
-            return false;
-        }
-    }
-
-    std::span<unsigned char> Dequeue(std::span<unsigned char> buffer) override
-    {
-        std::span<unsigned char> message;
-
-        // Keep trying until we get a message
-        while (true)
-        {
-            if (TryDequeue(buffer, message))
-            {
-                return message;
-            }
-
-            // Sleep briefly before retrying
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
-    }
-};
-
-// Extended QueueFactory that includes CreateSubscriber
-class ExtendedQueueFactory
-{
-public:
-    std::unique_ptr<ISubscriber> CreateSubscriber(const QueueOptions& options)
-    {
-        return std::make_unique<Subscriber>(options);
-    }
-};
 
 int main()
 {
@@ -127,20 +17,22 @@ int main()
         std::cout << "C++ Consumer starting..." << std::endl;
 
         // Mirror the C# subscriber configuration
-        const std::wstring queueName = L"sample-queue";
-        const std::wstring queuePath = L""; // Use default path
+        const std::string queueName = "sample-queue";
         const size_t capacity = 1024 * 1024; // 1MB like C# version
+        
+        // Convert string to wstring for QueueOptions
+        const std::wstring wQueueName(queueName.begin(), queueName.end());
+        
+        // Create queue options - using 2-parameter constructor to match C# behavior exactly
+        QueueOptions options(wQueueName, capacity);
 
-        // Create queue options - using 3-parameter constructor to match C# behavior
-        QueueOptions options(queueName, queuePath, capacity);
+        // Create subscriber using the QueueFactory
+        QueueFactory factory;
+        std::unique_ptr<ISubscriber> subscriber(factory.CreateSubscriber(options));
 
-        // Create subscriber using our extended factory
-        ExtendedQueueFactory factory;
-        auto subscriber = factory.CreateSubscriber(options);
-
-        std::wcout << L"Connected to queue: " << queueName << std::endl;
+        std::cout << "Connected to queue: " << queueName << std::endl;
         std::cout << "Capacity: " << capacity << " bytes" << std::endl;
-        std::cout << "Waiting for messages from C# publisher... (Press Ctrl+C to exit)" << std::endl;
+        std::cout << "Waiting for messages... (Press Ctrl+C to exit)" << std::endl;
         std::cout << std::endl;
 
         // Buffer to receive data - single byte like C# version
@@ -188,7 +80,7 @@ int main()
                     static int lastStatusTime = -1;
                     if (elapsed != lastStatusTime)
                     {
-                        std::cout << "[" << elapsed << "s] Still waiting for messages... (make sure C# publisher is running)" << std::endl;
+                        std::cout << "[" << elapsed << "s] Still waiting for messages... (ensure message sender is running)" << std::endl;
                         lastStatusTime = static_cast<int>(elapsed);
                     }
                 }
@@ -200,11 +92,11 @@ int main()
         std::cerr << "Error: " << ex.what() << std::endl;
         std::cout << std::endl;
         std::cout << "This might happen if:" << std::endl;
-        std::cout << "1. The C# publisher hasn't created the queue yet" << std::endl;
+        std::cout << "1. No message sender has connected to the queue yet" << std::endl;
         std::cout << "2. There's a permissions issue with the memory-mapped file" << std::endl;
-        std::cout << "3. The queue name doesn't match between C# and C++" << std::endl;
+        std::cout << "3. The queue name doesn't match between processes" << std::endl;
         std::cout << std::endl;
-        std::cout << "Try running the C# publisher first, then this consumer." << std::endl;
+        std::cout << "Try running a message sender (like the C# publisher), then this consumer." << std::endl;
         return 1;
     }
 

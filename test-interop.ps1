@@ -1,5 +1,5 @@
 # Test script for C++ Producer -> C# Subscriber communication
-# This script starts both processes and waits for them to complete
+# cd c:\repos\interprocess\src && msbuild /t:rebuild && C:\repos\interprocess\src\x64\Debug\Interprocess.Native.Static.Tests.exe && cd "c:\repos\interprocess" && .\test-interop.ps1
 
 Write-Host "=== C++ Producer -> C# Subscriber Interoperability Test ===" -ForegroundColor Cyan
 Write-Host ""
@@ -15,18 +15,18 @@ taskkill /F /IM Subscriber.exe 2>$null | Out-Null
 Start-Sleep -Seconds 1
 
 try {
-    # Start C++ Producer first (it will create the queue)
-    Write-Host "Starting C++ Producer first (will run for 30 seconds)..." -ForegroundColor Green
+    # Start C++ Producer (either process can create the queue)
+    Write-Host "Starting C++ Producer (will run for 30 seconds)..." -ForegroundColor Green
     $producerJob = Start-Job -ScriptBlock {
         param($path)
         & $path 2>&1
     } -ArgumentList (Resolve-Path $producerPath).Path
     
-    # Wait a moment for producer to initialize and create the queue
+    # Wait a moment for producer to initialize
     Start-Sleep -Seconds 3
     
-    # Start C# Subscriber (it will connect to the existing queue)
-    Write-Host "Starting C# Subscriber to read from the existing queue..." -ForegroundColor Green
+    # Start C# Subscriber (will connect to queue)
+    Write-Host "Starting C# Subscriber..." -ForegroundColor Green
     $subscriberJob = Start-Job -ScriptBlock {
         param($path)
         Set-Location $path
