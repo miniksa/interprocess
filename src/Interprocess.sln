@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.14.36603.0 d17.14
+VisualStudioVersion = 17.14.36603.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Interprocess", "Interprocess\Interprocess.csproj", "{25AEAFB3-E9CD-4B51-B3B3-E706BAC1FA23}"
 EndProject
@@ -11,9 +11,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Interprocess.Benchmark", "I
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Sample", "Sample", "{B95A6F0E-6A43-4F1B-8698-125BFD44716F}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Publisher", "Sample\Publisher\Publisher.csproj", "{FEB59965-4F4B-4DFA-B3A7-59A990DE0143}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Publisher", "Sample\csharp\Publisher\Publisher.csproj", "{FEB59965-4F4B-4DFA-B3A7-59A990DE0143}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Subscriber", "Sample\Subscriber\Subscriber.csproj", "{D19F0C91-DEEE-4BC1-B5FC-0F5ACCE09E76}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Subscriber", "Sample\csharp\Subscriber\Subscriber.csproj", "{D19F0C91-DEEE-4BC1-B5FC-0F5ACCE09E76}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Build", "Build", "{A178B233-238B-4BCB-8164-EA649C8FBB8D}"
 	ProjectSection(SolutionItems) = preProject
@@ -24,6 +24,12 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Build", "Build", "{A178B233
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Interprocess.Native.Static", "Interprocess.Native.Static\Interprocess.Native.Static.vcxproj", "{A31EA597-838E-4445-953A-4CBDB01519F2}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Interprocess.Native.Static.Tests", "Interprocess.Native.Static.Tests\Interprocess.Native.Static.Tests.vcxproj", "{3A5B0009-EAAE-4C4B-BA73-30E58D3DBC87}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "csharp", "csharp", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "cpp", "cpp", "{45B416DB-3784-424C-9D61-299C78C77FDE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -107,13 +113,27 @@ Global
 		{A31EA597-838E-4445-953A-4CBDB01519F2}.Release|x64.Build.0 = Release|x64
 		{A31EA597-838E-4445-953A-4CBDB01519F2}.Release|x86.ActiveCfg = Release|Win32
 		{A31EA597-838E-4445-953A-4CBDB01519F2}.Release|x86.Build.0 = Release|Win32
+		{3A5B0009-EAAE-4C4B-BA73-30E58D3DBC87}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{3A5B0009-EAAE-4C4B-BA73-30E58D3DBC87}.Debug|Any CPU.Build.0 = Debug|x64
+		{3A5B0009-EAAE-4C4B-BA73-30E58D3DBC87}.Debug|x64.ActiveCfg = Debug|x64
+		{3A5B0009-EAAE-4C4B-BA73-30E58D3DBC87}.Debug|x64.Build.0 = Debug|x64
+		{3A5B0009-EAAE-4C4B-BA73-30E58D3DBC87}.Debug|x86.ActiveCfg = Debug|Win32
+		{3A5B0009-EAAE-4C4B-BA73-30E58D3DBC87}.Debug|x86.Build.0 = Debug|Win32
+		{3A5B0009-EAAE-4C4B-BA73-30E58D3DBC87}.Release|Any CPU.ActiveCfg = Release|x64
+		{3A5B0009-EAAE-4C4B-BA73-30E58D3DBC87}.Release|Any CPU.Build.0 = Release|x64
+		{3A5B0009-EAAE-4C4B-BA73-30E58D3DBC87}.Release|x64.ActiveCfg = Release|x64
+		{3A5B0009-EAAE-4C4B-BA73-30E58D3DBC87}.Release|x64.Build.0 = Release|x64
+		{3A5B0009-EAAE-4C4B-BA73-30E58D3DBC87}.Release|x86.ActiveCfg = Release|Win32
+		{3A5B0009-EAAE-4C4B-BA73-30E58D3DBC87}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{FEB59965-4F4B-4DFA-B3A7-59A990DE0143} = {B95A6F0E-6A43-4F1B-8698-125BFD44716F}
-		{D19F0C91-DEEE-4BC1-B5FC-0F5ACCE09E76} = {B95A6F0E-6A43-4F1B-8698-125BFD44716F}
+		{FEB59965-4F4B-4DFA-B3A7-59A990DE0143} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{D19F0C91-DEEE-4BC1-B5FC-0F5ACCE09E76} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{02EA681E-C7D8-13C7-8484-4AC65E1B71E8} = {B95A6F0E-6A43-4F1B-8698-125BFD44716F}
+		{45B416DB-3784-424C-9D61-299C78C77FDE} = {B95A6F0E-6A43-4F1B-8698-125BFD44716F}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {144D02E1-C849-4099-B7D4-478B4095101A}
