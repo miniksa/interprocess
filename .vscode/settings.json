@@ -13,5 +13,8 @@
         "Timespec",
         "Xeon",
         "Xunit"
-    ]
+    ],
+    "files.associations": {
+        "chrono": "cpp"
+    }
 }

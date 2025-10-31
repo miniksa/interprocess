@@ -31,7 +31,7 @@ namespace Cloudtoid::Interprocess
             _file = new Memory::Windows::MemoryFileWindows(options);
 
             _view = MapViewOfFile(
-                _file.GetMappedFile(),
+                _file->GetMappedFile(),
                 FILE_MAP_READ | FILE_MAP_WRITE,
                 0,
                 0,

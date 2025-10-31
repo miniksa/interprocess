@@ -11,7 +11,7 @@ namespace Cloudtoid::Interprocess::Memory::Windows
 {
     class MemoryFileWindows final : public IMemoryFile
     {
-        const auto _mapNamePrefix = L"CT_IP_";
+        const wchar_t* _mapNamePrefix = L"CT_IP_";
 
         [[nodiscard]]
         static HANDLE CreateOrOpenCore(unsigned long long capacity, const wchar_t* name)

@@ -50,7 +50,7 @@ namespace Cloudtoid::Interprocess
                 auto newWriteOffset = SafeIncrementMessageOffset(writeOffset, messageLength);
 
                 // try to atomically update the write-offset that is stored in the queue header
-                if (InterlockedCompareExchange(&header.WriteOffset, newWriteOffset, writeOffset) == writeOffset)
+                if (InterlockedCompareExchange(&GetHeader()->WriteOffset, newWriteOffset, writeOffset) == writeOffset)
                 {
                     // write the message body
                     _buffer->Write(message, GetMessageBodyOffset(writeOffset));
