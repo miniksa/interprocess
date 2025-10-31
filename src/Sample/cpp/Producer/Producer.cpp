@@ -4,17 +4,33 @@
 #include <vector>
 #include <span>
 #include <memory>
+#include <cstdlib>
 #include "QueueOptions.h"
 #include "QueueFactory.h"
 #include "IPublisher.h"
 
 using namespace Cloudtoid::Interprocess;
 
-int main()
+int main(int argc, char* argv[])
 {
     try
     {
+        // Parse command line arguments for message count
+        int targetMessageCount = 1000; // Default to 1000 messages
+        
+        if (argc > 1)
+        {
+            targetMessageCount = std::atoi(argv[1]);
+            if (targetMessageCount <= 0)
+            {
+                std::cerr << "Error: Message count must be a positive integer" << std::endl;
+                std::cerr << "Usage: " << argv[0] << " [message_count]" << std::endl;
+                return 1;
+            }
+        }
+        
         std::cout << "C++ Producer starting..." << std::endl;
+        std::cout << "Target message count: " << targetMessageCount << std::endl;
         
         // Mirror the C# publisher configuration
         const std::string queueName = "sample-queue";
@@ -32,15 +48,14 @@ int main()
         
         std::cout << "Created queue: " << queueName << std::endl;
         std::cout << "Capacity: " << capacity << " bytes" << std::endl;
-        std::cout << "Starting to send messages... (Press Ctrl+C to exit)" << std::endl;
+        std::cout << "Starting to send " << targetMessageCount << " messages..." << std::endl;
         std::cout << std::endl;
         
         int messageCount = 0;
         auto startTime = std::chrono::steady_clock::now();
-        const auto maxDuration = std::chrono::seconds(30); // Run for 30 seconds
         
-        // Run for 30 seconds instead of infinite loop
-        while (std::chrono::steady_clock::now() - startTime < maxDuration)
+        // Send exactly the target number of messages
+        while (messageCount < targetMessageCount)
         {
             // Create a single byte message: (messageCount % 256)
             // This mirrors exactly what the C# publisher does: (byte)(i % 256)
@@ -52,41 +67,35 @@ int main()
             {
                 messageCount++;
                 
-                // Show progress every 1000 messages
-                if (messageCount % 1000 == 0)
+                // Show progress every 100 messages or at key milestones
+                if (messageCount % 100 == 0 || messageCount == targetMessageCount)
                 {
                     auto currentTime = std::chrono::steady_clock::now();
-                    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(currentTime - startTime).count();
+                    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - startTime).count();
                     
-                    double messagesPerSecond = elapsed > 0 ? static_cast<double>(messageCount) / elapsed : 0.0;
-                    std::cout << "[" << elapsed << "s] Sent " << messageCount 
+                    double messagesPerSecond = elapsed > 0 ? static_cast<double>(messageCount * 1000) / elapsed : 0.0;
+                    std::cout << "Sent " << messageCount << "/" << targetMessageCount
                               << " messages (Current byte: " << static_cast<int>(messageData) 
                               << ", Throughput: " << messagesPerSecond << " msg/s)" << std::endl;
                 }
             }
             else
             {
-                // Queue is full, wait a bit before retrying (like C# version does)
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                
-                // Show debug when queue is full
-                if (messageCount % 1000 == 0)
-                {
-                    std::cout << "DEBUG: Queue full at message " << messageCount 
-                              << ", waiting... (byte: " << static_cast<int>(messageData) << ")" << std::endl;
-                }
+                // Queue is full, wait a bit before retrying
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
         }
         
         // Print final summary
         auto endTime = std::chrono::steady_clock::now();
-        auto totalDuration = std::chrono::duration_cast<std::chrono::seconds>(endTime - startTime).count();
-        double avgThroughput = totalDuration > 0 ? static_cast<double>(messageCount) / totalDuration : 0.0;
+        auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+        double avgThroughput = totalDuration > 0 ? static_cast<double>(messageCount * 1000) / totalDuration : 0.0;
         
         std::cout << std::endl;
         std::cout << "=== C++ Producer Finished ===" << std::endl;
-        std::cout << "Total runtime: " << totalDuration << " seconds" << std::endl;
+        std::cout << "Total runtime: " << totalDuration << " ms" << std::endl;
         std::cout << "Total messages sent: " << messageCount << std::endl;
+        std::cout << "Target messages: " << targetMessageCount << std::endl;
         std::cout << "Average throughput: " << avgThroughput << " msg/s" << std::endl;
         std::cout << std::endl;
     }

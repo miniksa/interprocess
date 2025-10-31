@@ -26,14 +26,44 @@ internal static partial class Program
 
         // Dequeue messages
         var messageBuffer = new byte[1];
+        var messageCount = 0;
+        var lastMessageTime = DateTime.UtcNow;
+
+        LogStart(logger);
 
         while (true)
         {
             if (subscriber.TryDequeue(messageBuffer, default, out var message))
-                LogDequeue(logger, messageBuffer[0]);
+            {
+                messageCount++;
+                lastMessageTime = DateTime.UtcNow;
+                LogDequeue(logger, messageBuffer[0], messageCount);
+            }
+            else
+            {
+                // If no messages for 3 seconds, assume producer is done
+                if (messageCount > 0 && (DateTime.UtcNow - lastMessageTime).TotalSeconds > 3)
+                {
+                    LogFinished(logger);
+                    LogTotalReceived(logger, messageCount);
+                    break;
+                }
+
+                // Short sleep to avoid busy waiting
+                Thread.Sleep(10);
+            }
         }
     }
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Dequeue #{i}")]
-    private static partial void LogDequeue(ILogger logger, int i);
+    [LoggerMessage(Level = LogLevel.Information, Message = "C# Subscriber started, waiting for messages...")]
+    private static partial void LogStart(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "=== C# Subscriber Finished ===")]
+    private static partial void LogFinished(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Total messages received: {MessageCount}")]
+    private static partial void LogTotalReceived(ILogger logger, int messageCount);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Dequeue #{MessageCount}: {Value}")]
+    private static partial void LogDequeue(ILogger logger, int value, int messageCount);
 }
