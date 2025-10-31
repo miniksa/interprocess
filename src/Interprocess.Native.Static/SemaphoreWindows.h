@@ -10,7 +10,7 @@ namespace Cloudtoid::Interprocess::Semaphore::Windows
 {
     class SemaphoreWindows final : public IInterprocessSemaphoreReleaser, public IInterprocessSemaphoreWaiter
     {
-        auto _handleNamePrefix = L"Global\\CT.IP.";
+        const wchar_t* _handleNamePrefix = L"Global\\CT.IP.";
         HANDLE _handle;
 
     public:
@@ -21,7 +21,7 @@ namespace Cloudtoid::Interprocess::Semaphore::Windows
             _handle = CreateSemaphoreW(
                 nullptr,
                 0,
-                std::numeric_limits<long>::max,
+                std::numeric_limits<long>::max(),
                 full_name.data());
 
             if (_handle == nullptr || _handle == INVALID_HANDLE_VALUE)
