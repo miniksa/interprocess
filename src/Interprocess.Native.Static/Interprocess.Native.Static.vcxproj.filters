@@ -1,0 +1,70 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Contracts">
+      <UniqueIdentifier>{a3b9cc81-9829-43ec-9f56-d73d05f77281}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Memory">
+      <UniqueIdentifier>{255df030-8fc8-48d9-ad0a-bbe2629a3d38}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Queue">
+      <UniqueIdentifier>{527ec378-4923-48c3-a4f5-bd4c3c0a2a76}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Semaphore">
+      <UniqueIdentifier>{e09731cf-d57d-4fe7-ac31-f939109ff6ad}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="IPublisher.h">
+      <Filter>Contracts</Filter>
+    </ClInclude>
+    <ClInclude Include="IQueueFactory.h">
+      <Filter>Contracts</Filter>
+    </ClInclude>
+    <ClInclude Include="QueueOptions.h">
+      <Filter>Contracts</Filter>
+    </ClInclude>
+    <ClInclude Include="QueueHeader.h">
+      <Filter>Contracts</Filter>
+    </ClInclude>
+    <ClInclude Include="MessageHeader.h">
+      <Filter>Contracts</Filter>
+    </ClInclude>
+    <ClInclude Include="CircularBuffer.h">
+      <Filter>Memory</Filter>
+    </ClInclude>
+    <ClInclude Include="IMemoryFile.h">
+      <Filter>Memory</Filter>
+    </ClInclude>
+    <ClInclude Include="MemoryFileWindows.h">
+      <Filter>Memory</Filter>
+    </ClInclude>
+    <ClInclude Include="MemoryView.h">
+      <Filter>Memory</Filter>
+    </ClInclude>
+    <ClInclude Include="QueueFactory.h">
+      <Filter>Queue</Filter>
+    </ClInclude>
+    <ClInclude Include="Queue.h">
+      <Filter>Queue</Filter>
+    </ClInclude>
+    <ClInclude Include="Publisher.h">
+      <Filter>Queue</Filter>
+    </ClInclude>
+    <ClInclude Include="IInterprocessSemaphoreReleaser.h">
+      <Filter>Semaphore</Filter>
+    </ClInclude>
+    <ClInclude Include="InterprocessSemaphore.h">
+      <Filter>Semaphore</Filter>
+    </ClInclude>
+    <ClInclude Include="SemaphoreWindows.h">
+      <Filter>Semaphore</Filter>
+    </ClInclude>
+    <ClInclude Include="IInterprocessSemaphoreWaiter.h">
+      <Filter>Semaphore</Filter>
+    </ClInclude>
+    <ClInclude Include="ISubscriber.h">
+      <Filter>Contracts</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
