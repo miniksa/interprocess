@@ -40,6 +40,9 @@ namespace Cloudtoid::Interprocess
         {
             try
             {
+                // Ensure we see the latest memory state
+                MemoryBarrier();
+                
                 auto* header = GetHeader();
                 if (header == nullptr)
                 {

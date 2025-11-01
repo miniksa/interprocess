@@ -59,6 +59,9 @@ namespace Cloudtoid::Interprocess
                     _buffer->Write(MessageHeader{MessageHeader::ReadyToBeConsumedState, static_cast<int>(bodyLength)},
                                    writeOffset);
 
+                    // Ensure memory writes are flushed to shared memory
+                    MemoryBarrier();
+
                     // signal the next receiver that there is a new message in the queue
                     _signal->Release();
                     return true;

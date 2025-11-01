@@ -19,6 +19,7 @@ namespace Cloudtoid::Interprocess::Memory::Windows
             const auto capacityHigh = static_cast<unsigned long>(capacity >> 32);
             const auto capacityLow = static_cast<unsigned long>(capacity & 0xFFFFFFFF);
 
+            // Try to create a new memory-mapped file
             auto handle = CreateFileMappingW(
                 INVALID_HANDLE_VALUE,
                 nullptr,
@@ -28,16 +29,38 @@ namespace Cloudtoid::Interprocess::Memory::Windows
                 name
             );
 
+            // CRITICAL: Save GetLastError() immediately after CreateFileMappingW
+            // because subsequent operations may overwrite it
+            auto lastError = GetLastError();
+
             if (handle != nullptr && handle != INVALID_HANDLE_VALUE)
             {
+                // Check if this is a newly created file vs existing one
+                bool isNewFile = (lastError != ERROR_ALREADY_EXISTS);
+                
+                if (isNewFile)
+                {
+                    // For newly created memory-mapped files, ensure they are zero-initialized
+                    // Map the entire file to zero it out
+                    void* view = MapViewOfFile(handle, FILE_MAP_WRITE, 0, 0, 0);
+                    if (view != nullptr)
+                    {
+                        // Zero out the entire memory-mapped file
+                        ZeroMemory(view, static_cast<SIZE_T>(capacity));
+                        UnmapViewOfFile(view);
+                    }
+                }
+                
                 return handle;
             }
+            
             auto error = GetLastError();
             if (error != ERROR_ACCESS_DENIED)
             {
                 throw std::system_error(static_cast<int>(error), std::system_category());
             }
 
+            // Try to open existing file mapping
             handle = OpenFileMappingW(PAGE_READWRITE, FALSE, name);
 
             if (handle != nullptr && handle != INVALID_HANDLE_VALUE)

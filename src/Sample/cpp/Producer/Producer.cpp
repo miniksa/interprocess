@@ -15,8 +15,9 @@ int main(int argc, char* argv[])
 {
     try
     {
-        // Parse command line arguments for message count
+        // Parse command line arguments for message count and optional queue name
         int targetMessageCount = 1000; // Default to 1000 messages
+        std::string queueName = "sample-queue"; // Default queue name
         
         if (argc > 1)
         {
@@ -24,16 +25,20 @@ int main(int argc, char* argv[])
             if (targetMessageCount <= 0)
             {
                 std::cerr << "Error: Message count must be a positive integer" << std::endl;
-                std::cerr << "Usage: " << argv[0] << " [message_count]" << std::endl;
+                std::cerr << "Usage: " << argv[0] << " [message_count] [queue_name]" << std::endl;
                 return 1;
             }
+        }
+        
+        if (argc > 2)
+        {
+            queueName = argv[2];
         }
         
         std::cout << "C++ Producer starting..." << std::endl;
         std::cout << "Target message count: " << targetMessageCount << std::endl;
         
         // Mirror the C# publisher configuration
-        const std::string queueName = "sample-queue";
         const size_t capacity = 1024 * 1024; // 1MB like C# version
         
         // Convert string to wstring for QueueOptions
@@ -57,9 +62,9 @@ int main(int argc, char* argv[])
         // Send exactly the target number of messages
         while (messageCount < targetMessageCount)
         {
-            // Create a single byte message: (messageCount % 256)
-            // This mirrors exactly what the C# publisher does: (byte)(i % 256)
-            unsigned char messageData = static_cast<unsigned char>(messageCount % 256);
+            // Create a message with sequential values 0-99, repeating if targetMessageCount > 100
+            // This matches the C# publisher pattern exactly
+            unsigned char messageData = static_cast<unsigned char>(messageCount % 100);
             std::span<const unsigned char> message(&messageData, 1);
             
             // Try to enqueue the message
