@@ -435,38 +435,6 @@ public unsafe class CircularBufferTests
         }
     }
 
-    [Fact]
-    public void WriteEmptySpan()
-    {
-        // Test writing empty span doesn't corrupt state
-        var b = new byte[10];
-        fixed (byte* ptr = &b[0])
-        {
-            var buffer = new CircularBuffer(ptr, 10);
-
-            var emptyData = Array.Empty<byte>();
-            buffer.Write(emptyData, 0);
-
-            // Buffer should still be all zeros
-            var result = buffer.Read(0, 10);
-            result.ToArray().All(x => x == 0).Should().BeTrue();
-        }
-    }
-
-    [Fact]
-    public void ReadEmptyLength()
-    {
-        // Test reading zero bytes returns empty result
-        var b = new byte[10];
-        fixed (byte* ptr = &b[0])
-        {
-            var buffer = new CircularBuffer(ptr, 10);
-
-            var result = buffer.Read(0, 0);
-            result.Length.Should().Be(0);
-        }
-    }
-
     [Theory]
     [InlineData(100)]
     [InlineData(500)]

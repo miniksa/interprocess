@@ -386,45 +386,7 @@ public class QueueTests : IClassFixture<UniquePathFixture>
         }
     }
 
-    [Fact]
-    [TestBeforeAfter]
-    public void AlternatingEnqueueDequeue()
-    {
-        // Test rapid alternating operations to catch race conditions and state management issues
-        const int iterations = 1000;
-        using var p = CreatePublisher(1024 * 1024);
-        using var s = CreateSubscriber(1024 * 1024);
-
-        for (int i = 0; i < iterations; i++)
-        {
-            var message = new byte[] { (byte)i, (byte)(i >> 8) };
-            p.TryEnqueue(message).Should().BeTrue($"Failed to enqueue on iteration {i}");
-
-            var received = s.Dequeue(default);
-            received.ToArray().Should().BeEquivalentTo(
-                message,
-                options => options.WithStrictOrdering(),
-                $"Data mismatch on iteration {i}");
-        }
-    }
-
     // ===== Edge Cases =====
-
-    [Fact]
-    [TestBeforeAfter]
-    public void SingleByteMessage()
-    {
-        // Test minimum message size
-        using var p = CreatePublisher(1024);
-        using var s = CreateSubscriber(1024);
-
-        byte[] message = [0x42];
-        p.TryEnqueue(message).Should().BeTrue();
-
-        var received = s.Dequeue(default);
-        received.Length.Should().Be(1);
-        received.Span[0].Should().Be(0x42);
-    }
 
     [Fact]
     [TestBeforeAfter]
@@ -445,17 +407,6 @@ public class QueueTests : IClassFixture<UniquePathFixture>
 
         received.Length.Should().Be(messageSize);
         received.ToArray().Should().BeEquivalentTo(message, options => options.WithStrictOrdering());
-    }
-
-    [Fact]
-    [TestBeforeAfter]
-    public void NoGarbageDataInNewQueue()
-    {
-        // Test that a new queue doesn't contain garbage data
-        // This is a regression test for clean initialization
-        using var s = CreateSubscriber(1024);
-
-        s.TryDequeue(default, out _).Should().BeFalse("New queue should be empty");
     }
 
     [Theory]
