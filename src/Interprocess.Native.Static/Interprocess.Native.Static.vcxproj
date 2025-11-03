@@ -18,7 +18,8 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
-  <PropertyGroup Condition="'$(Configuration)'=='Debug'">
+  <PropertyGroup>
+    <WarningLevel>Level4</WarningLevel>
     <TreatWarningAsError>true</TreatWarningAsError>
   </PropertyGroup>
   <PropertyGroup Label="Globals">

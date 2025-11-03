@@ -81,25 +81,11 @@ TEST_F(CircularBufferTest, AdjustedOffsetWrapsCorrectly)
 {
     CircularBuffer buffer(testBuffer, 10);
     
-    unsigned long long offset = 0;
-    buffer.AdjustedOffset(offset);
-    EXPECT_EQ(offset, 0);
-    
-    offset = 5;
-    buffer.AdjustedOffset(offset);
-    EXPECT_EQ(offset, 5);
-    
-    offset = 10;
-    buffer.AdjustedOffset(offset);
-    EXPECT_EQ(offset, 0);
-    
-    offset = 15;
-    buffer.AdjustedOffset(offset);
-    EXPECT_EQ(offset, 5);
-    
-    offset = 100;
-    buffer.AdjustedOffset(offset);
-    EXPECT_EQ(offset, 0);
+    EXPECT_EQ(buffer.AdjustedOffset(0), 0);
+    EXPECT_EQ(buffer.AdjustedOffset(5), 5);
+    EXPECT_EQ(buffer.AdjustedOffset(10), 0);
+    EXPECT_EQ(buffer.AdjustedOffset(15), 5);
+    EXPECT_EQ(buffer.AdjustedOffset(100), 0);
 }
 
 // ===== Write Tests =====

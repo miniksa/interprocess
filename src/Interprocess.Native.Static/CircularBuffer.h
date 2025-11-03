@@ -21,15 +21,14 @@ namespace Cloudtoid::Interprocess
         }
 
         [[nodiscard]]
-        unsigned char* GetPointer(unsigned long long offset) const
+        unsigned char* GetPointer(const unsigned long long offset) const
         {
-            auto adjustedOffset = offset;
-            AdjustedOffset(adjustedOffset);
+            const auto adjustedOffset = AdjustedOffset(offset);
             return _buffer + adjustedOffset;
         }
 
         [[nodiscard]]
-        std::span<const unsigned char> Read(unsigned long long offset, 
+        std::span<const unsigned char> Read(const unsigned long long offset, 
                                             unsigned long long length,
                                             const std::span<unsigned char> resultBuffer) const
         {
@@ -41,8 +40,7 @@ namespace Cloudtoid::Interprocess
             auto result = resultBuffer;
             length = std::min(length, result.size());
 
-            auto adjustedOffset = offset;
-            AdjustedOffset(adjustedOffset);
+            const auto adjustedOffset = AdjustedOffset(offset);
 
             const auto resultBufferPtr = result.data();
             const auto sourcePtr = _buffer + adjustedOffset;
@@ -75,15 +73,14 @@ namespace Cloudtoid::Interprocess
             Write(reinterpret_cast<const unsigned char*>(&source), sizeof(T), offset);
         }
 
-        void Clear(unsigned long long offset, const unsigned long long length) const
+        void Clear(const unsigned long long offset, const unsigned long long length) const
         {
             if (length == 0)
             {
                 return;
             }
 
-            auto adjustedOffset = offset;
-            AdjustedOffset(adjustedOffset);
+            const auto adjustedOffset = AdjustedOffset(offset);
             const auto rightLength = std::min(_capacity - adjustedOffset, length);
             std::memset(_buffer + adjustedOffset, 0, rightLength);
 
@@ -94,20 +91,20 @@ namespace Cloudtoid::Interprocess
             }
         }
 
-        void AdjustedOffset(unsigned long long& offset) const
+        [[nodiscard]]
+        unsigned long long AdjustedOffset(const unsigned long long offset) const
         {
-            offset %= _capacity;
+            return offset % _capacity;
         }
 
-        void Write(const unsigned char* source, const unsigned long long length, unsigned long long offset) const
+        void Write(const unsigned char* source, const unsigned long long length, const unsigned long long offset) const
         {
             if (length == 0)
             {
                 return;
             }
 
-            auto adjustedOffset = offset;
-            AdjustedOffset(adjustedOffset);
+            const auto adjustedOffset = AdjustedOffset(offset);
             const auto rightLength = std::min(_capacity - adjustedOffset, length);
             std::copy_n(source, rightLength, _buffer + adjustedOffset);
 

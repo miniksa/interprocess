@@ -2,19 +2,6 @@
 #include <thread>
 #include <chrono>
 
-// Basic semaphore tests that don't require the full library implementation
-TEST(SemaphoreBasicTests, BasicTimeoutTest) {
-    // Test that we can measure timeouts
-    auto start = std::chrono::high_resolution_clock::now();
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    auto end = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    
-    // Should have slept for at least 10ms
-    EXPECT_GE(duration.count(), 8); // Allow some tolerance
-    EXPECT_LT(duration.count(), 100); // But not too much
-}
-
 TEST(SemaphoreBasicTests, ThreadingSupport) {
     // Test that we can create and join threads
     bool threadExecuted = false;
