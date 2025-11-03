@@ -107,6 +107,7 @@
     <ClInclude Include="pch.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CircularBufferTests.cpp" />
     <ClCompile Include="QueueTests.cpp" />
     <ClCompile Include="QueueAllocationTests.cpp" />
     <ClCompile Include="QueueDebugTests.cpp" />

@@ -1,16 +1,39 @@
-# Comprehensive Cross-Process Message Integrity Test
-# Tests all four scenarios: C++ -> C#, C# -> C++, C++ -> C++, C# -> C#
-# Validates sequential values 0-99 and exact message counts
+# Comprehensive Cross-Process Message Integrity Test Suite
+#
+# Tests all scenarios:
+#   - C++ Producer → C++ Consumer
+#   - C++ Producer → C# Subscriber
+#   - C# Publisher → C++ Consumer
+#   - C# Publisher → C# Subscriber
+#   - Multiple Concurrent C++ Producers → Single C++ Consumer
+#   - Multiple Concurrent C++ Producers → Single C# Consumer
+#
+# Usage:
+#   .\test-comprehensive.ps1                                    # Run all tests
+#   .\test-comprehensive.ps1 -Scenario cpp-cpp                  # Run specific test
+#   .\test-comprehensive.ps1 -Scenario concurrent               # Run C++ concurrent test
+#   .\test-comprehensive.ps1 -Scenario concurrent-csharp        # Run C++ → C# concurrent test
+#   .\test-comprehensive.ps1 -MessageCount 50                   # Use 50 messages for interop tests
+#   .\test-comprehensive.ps1 -ConcurrentProducerCount 10        # Use 10 concurrent producers
+#
+# Scenarios: all, cpp-cpp, cpp-csharp, csharp-cpp, csharp-csharp, concurrent, concurrent-csharp
 
 param(
     [int]$MessageCount = 100,
-    [string]$Scenario = "all"
+    [string]$Scenario = "all",
+    [int]$ConcurrentProducerCount = 100,
+    [int]$MessagesPerProducer = 5
 )
 
 $ErrorActionPreference = "Stop"
 
 Write-Host "=== Cross-Process Message Integrity Test Suite ===" -ForegroundColor Cyan
-Write-Host "Testing with $MessageCount messages (values 0-99 sequentially)" -ForegroundColor Cyan
+if ($Scenario -ne "concurrent") {
+    Write-Host "Testing with $MessageCount messages (values 0-99 sequentially)" -ForegroundColor Cyan
+}
+if ($Scenario -eq "all" -or $Scenario -eq "concurrent") {
+    Write-Host "Concurrent test: $ConcurrentProducerCount producers × $MessagesPerProducer messages" -ForegroundColor Cyan
+}
 Write-Host ""
 
 # Build project first
@@ -32,15 +55,21 @@ try {
 # Define paths
 $cppProducer = "src\x64\Debug\Producer.exe"
 $cppConsumer = "src\x64\Debug\Consumer.exe"
+$cppRangeProducer = "src\x64\Debug\RangeProducer.exe"
+$cppSumConsumer = "src\x64\Debug\SumConsumer.exe"
 $csharpPublisher = "src\Sample\csharp\Publisher"
 $csharpSubscriber = "src\Sample\csharp\Subscriber"
+$csharpSumConsumer = "src\Sample\csharp\SumConsumer"
 
 # Verify paths exist
 $paths = @{
     "C++ Producer" = $cppProducer
     "C++ Consumer" = $cppConsumer
+    "C++ Range Producer" = $cppRangeProducer
+    "C++ Sum Consumer" = $cppSumConsumer
     "C# Publisher" = "$csharpPublisher\bin\Debug\net9.0\Publisher.exe"
     "C# Subscriber" = "$csharpSubscriber\bin\Debug\net9.0\Subscriber.exe"
+    "C# Sum Consumer" = "$csharpSumConsumer\bin\Debug\net9.0\SumConsumer.exe"
 }
 
 foreach ($name in $paths.Keys) {
@@ -57,6 +86,8 @@ function Cleanup-Processes {
     taskkill /F /IM Consumer.exe 2>$null | Out-Null
     taskkill /F /IM Publisher.exe 2>$null | Out-Null
     taskkill /F /IM Subscriber.exe 2>$null | Out-Null
+    taskkill /F /IM RangeProducer.exe 2>$null | Out-Null
+    taskkill /F /IM SumConsumer.exe 2>$null | Out-Null
     Start-Sleep -Seconds 1
 }
 
@@ -69,16 +100,16 @@ function Test-CrossProcess {
         [string]$ConsumerWorkDir,
         [int]$Count
     )
-    
+
     Write-Host "=== Testing: $TestName ===" -ForegroundColor Magenta
-    
+
     # Create unique queue name for this test
     $timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
     $queueName = "test-queue-$timestamp"
     Write-Host "Using queue: $queueName" -ForegroundColor Cyan
-    
+
     Cleanup-Processes
-    
+
     try {
         # Start Consumer first
         Write-Host "Starting Consumer..." -ForegroundColor Green
@@ -99,10 +130,10 @@ function Test-CrossProcess {
                 & $exe $count $queue 2>&1
             } -ArgumentList (Resolve-Path $ConsumerExe).Path, $Count, $queueName
         }
-        
+
         # Wait for consumer to start
         Start-Sleep -Seconds 3
-        
+
         # Start Producer
         Write-Host "Starting Producer to send $Count messages..." -ForegroundColor Green
         if ($ProducerWorkDir) {
@@ -122,44 +153,44 @@ function Test-CrossProcess {
                 & $exe $count $queue 2>&1
             } -ArgumentList (Resolve-Path $ProducerExe).Path, $Count, $queueName
         }
-        
+
         # Wait for completion
         Write-Host "Waiting for Producer completion..." -ForegroundColor Yellow
         Wait-Job $producerJob -Timeout 30 | Out-Null
-        
+
         Write-Host "Waiting for Consumer completion..." -ForegroundColor Yellow
         Wait-Job $consumerJob -Timeout 10 | Out-Null
-        
+
         # Get results
         $producerOutput = Receive-Job $producerJob
         $consumerOutput = Receive-Job $consumerJob
-        
+
         Write-Host "`nAnalyzing results..." -ForegroundColor Cyan
-        
+
         # Parse producer results
         $producerSent = 0
         $producerMatch = $producerOutput | Select-String "Total messages sent: (\d+)"
         if ($producerMatch) {
             $producerSent = [int]$producerMatch.Matches[0].Groups[1].Value
         }
-        
+
         # Parse consumer results
         $consumerReceived = 0
         $sequenceSuccess = $false
-        
+
         $consumerMatch = $consumerOutput | Select-String "Total messages received: (\d+)"
         if ($consumerMatch) {
             $consumerReceived = [int]$consumerMatch.Matches[0].Groups[1].Value
         }
-        
+
         # Check for sequence validation (supports both C++ and C# formats)
         $sequenceSuccess = $consumerOutput | Select-String "Perfect message integrity"
         $sequenceError = $consumerOutput | Select-String "SEQUENCE ERROR|Sequence validation failed"
-        
+
         # Determine result
         $success = $false
         $message = ""
-        
+
         if ($producerSent -eq $Count -and $consumerReceived -eq $Count -and $sequenceSuccess) {
             $success = $true
             $message = "Perfect message integrity! All $Count messages sent and received with correct sequence (0-$([Math]::Min($Count-1, 99)))"
@@ -172,7 +203,7 @@ function Test-CrossProcess {
         } else {
             $message = "Unknown validation failure"
         }
-        
+
         # Display results
         if ($success) {
             Write-Host "🎉 SUCCESS: $message" -ForegroundColor Green
@@ -183,14 +214,241 @@ function Test-CrossProcess {
             Write-Host "Consumer Output:" -ForegroundColor Yellow
             $consumerOutput | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
         }
-        
+
         return @{
             Success = $success
             Message = $message
             ProducerSent = $producerSent
             ConsumerReceived = $consumerReceived
         }
-        
+
+    } finally {
+        Get-Job | Remove-Job -Force
+        Cleanup-Processes
+    }
+}
+
+function Test-ConcurrentProducers {
+    param(
+        [int]$ProducerCount,
+        [int]$MessagesPerProducer
+    )
+
+    Write-Host "=== Testing: Multiple Concurrent C++ Producers → Single C++ Consumer ===" -ForegroundColor Magenta
+    Write-Host "This test validates that multiple producers can write concurrently without data corruption" -ForegroundColor Cyan
+    Write-Host ""
+
+    # Test parameters
+    $timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+    $queueName = "test-concurrent-$timestamp"
+    $eventName = "ProducerStartEvent_$timestamp"
+    $totalMessages = $ProducerCount * $MessagesPerProducer
+
+    # Calculate expected sum
+    # Producer i sends values from (i * MessagesPerProducer) to ((i+1) * MessagesPerProducer - 1)
+    # Sum of arithmetic sequence: sum = n * (first + last) / 2
+    $expectedSum = 0
+    for ($i = 0; $i -lt $ProducerCount; $i++) {
+        $start = $i * $MessagesPerProducer
+        $end = $start + $MessagesPerProducer - 1
+        $rangeSum = $MessagesPerProducer * ($start + $end) / 2
+        $expectedSum += $rangeSum
+    }
+
+    Write-Host "Configuration:" -ForegroundColor Cyan
+    Write-Host "  Producers: $ProducerCount" -ForegroundColor White
+    Write-Host "  Messages per producer: $MessagesPerProducer" -ForegroundColor White
+    Write-Host "  Total messages: $totalMessages" -ForegroundColor White
+    Write-Host "  Expected sum: $expectedSum" -ForegroundColor White
+    Write-Host "  Queue: $queueName" -ForegroundColor White
+    Write-Host "  Event: $eventName" -ForegroundColor White
+    Write-Host ""
+
+    Cleanup-Processes
+
+    try {
+        # Launch all producers FIRST (they will block waiting for the event)
+        Write-Host "Launching $ProducerCount producers (blocking on event)..." -ForegroundColor Green
+        $producerJobs = @()
+
+        for ($i = 0; $i -lt $ProducerCount; $i++) {
+            $startValue = $i * $MessagesPerProducer
+
+            $producerJob = Start-Job -ScriptBlock {
+                param($exe, $start, $count, $queue, $eventName)
+                & $exe $start $count $queue $eventName 2>&1
+            } -ArgumentList (Resolve-Path $cppRangeProducer).Path, $startValue, $MessagesPerProducer, $queueName, $eventName
+
+            $producerJobs += $producerJob
+        }
+
+        Write-Host "All producers launched and blocking..." -ForegroundColor Yellow
+
+        # Give producers time to start and reach blocking state
+        Start-Sleep -Seconds 2
+
+        # Start consumer (which will signal the event to release all producers)
+        Write-Host "Starting consumer (will signal event to start all producers)..." -ForegroundColor Green
+        $consumerJob = Start-Job -ScriptBlock {
+            param($exe, $count, $sum, $queue, $eventName)
+            & $exe $count $sum $queue 30 $eventName 2>&1
+        } -ArgumentList (Resolve-Path $cppSumConsumer).Path, $totalMessages, $expectedSum, $queueName, $eventName
+
+        Write-Host "🚀 Producers will start SIMULTANEOUSLY!" -ForegroundColor Green
+        Write-Host ""
+
+        # Wait for all producers to complete
+        Write-Host "Waiting for producers..." -ForegroundColor Yellow
+        $producerJobs | Wait-Job -Timeout 30 | Out-Null
+
+        # Give consumer time to process remaining messages
+        Start-Sleep -Seconds 2
+
+        # Wait for consumer
+        Write-Host "Waiting for consumer..." -ForegroundColor Yellow
+        Wait-Job $consumerJob -Timeout 10 | Out-Null
+
+        # Get consumer output
+        $consumerOutput = Receive-Job $consumerJob
+
+        # Parse results
+        $success = $consumerOutput | Select-String "SUCCESS: All messages received with correct sum"
+        $failed = $consumerOutput | Select-String "FAILED:"
+
+        $message = ""
+        $testSuccess = $false
+
+        if ($success) {
+            $testSuccess = $true
+            $message = "All $totalMessages messages from $ProducerCount concurrent producers received with perfect integrity"
+        } elseif ($failed) {
+            $failLine = ($failed | Select-Object -First 1).Line
+            $message = $failLine
+        } else {
+            $message = "Could not determine test result"
+        }
+
+        return @{
+            Success = $testSuccess
+            Message = $message
+        }
+
+    } finally {
+        Get-Job | Remove-Job -Force
+        Cleanup-Processes
+    }
+}
+
+function Test-ConcurrentProducersCSharpConsumer {
+    param(
+        [int]$ProducerCount,
+        [int]$MessagesPerProducer
+    )
+
+    Write-Host "=== Testing: Multiple Concurrent C++ Producers → Single C# Consumer ===" -ForegroundColor Magenta
+    Write-Host "This test validates that the C# library can consume from concurrent C++ producers" -ForegroundColor Cyan
+    Write-Host ""
+
+    # Test parameters
+    $timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+    $queueName = "test-concurrent-csharp-$timestamp"
+    $eventName = "ProducerStartEvent_$timestamp"
+    $totalMessages = $ProducerCount * $MessagesPerProducer
+
+    # Calculate expected sum
+    $expectedSum = 0
+    for ($i = 0; $i -lt $ProducerCount; $i++) {
+        $start = $i * $MessagesPerProducer
+        $end = $start + $MessagesPerProducer - 1
+        $rangeSum = $MessagesPerProducer * ($start + $end) / 2
+        $expectedSum += $rangeSum
+    }
+
+    Write-Host "Configuration:" -ForegroundColor Cyan
+    Write-Host "  Producers: $ProducerCount (C++)" -ForegroundColor White
+    Write-Host "  Consumer: C#" -ForegroundColor White
+    Write-Host "  Messages per producer: $MessagesPerProducer" -ForegroundColor White
+    Write-Host "  Total messages: $totalMessages" -ForegroundColor White
+    Write-Host "  Expected sum: $expectedSum" -ForegroundColor White
+    Write-Host "  Queue: $queueName" -ForegroundColor White
+    Write-Host "  Event: $eventName" -ForegroundColor White
+    Write-Host ""
+
+    Cleanup-Processes
+
+    try {
+        # Launch all C++ producers (they will block waiting for the event)
+        Write-Host "Launching $ProducerCount C++ producers (blocking on event)..." -ForegroundColor Green
+        $producerJobs = @()
+
+        for ($i = 0; $i -lt $ProducerCount; $i++) {
+            $startValue = $i * $MessagesPerProducer
+
+            $producerJob = Start-Job -ScriptBlock {
+                param($exe, $start, $count, $queue, $eventName)
+                & $exe $start $count $queue $eventName 2>&1
+            } -ArgumentList (Resolve-Path $cppRangeProducer).Path, $startValue, $MessagesPerProducer, $queueName, $eventName
+
+            $producerJobs += $producerJob
+        }
+
+        Write-Host "All C++ producers launched and blocking..." -ForegroundColor Yellow
+
+        # Give producers time to start and reach blocking state
+        Start-Sleep -Seconds 2
+
+        # Start C# consumer (which will signal the event to release all producers)
+        Write-Host "Starting C# consumer (will signal event to start all producers)..." -ForegroundColor Green
+        $csharpConsumerExe = Join-Path $csharpSumConsumer "bin\Debug\net9.0\SumConsumer.exe"
+        $consumerJob = Start-Job -ScriptBlock {
+            param($exe, $count, $sum, $queue, $eventName)
+            & $exe $count $sum $queue 30 $eventName 2>&1
+        } -ArgumentList (Resolve-Path $csharpConsumerExe).Path, $totalMessages, $expectedSum, $queueName, $eventName
+
+        Write-Host "🚀 Producers will start SIMULTANEOUSLY!" -ForegroundColor Green
+        Write-Host ""
+
+        # Wait for all producers to complete
+        Write-Host "Waiting for C++ producers..." -ForegroundColor Yellow
+        $producerJobs | Wait-Job -Timeout 30 | Out-Null
+
+        # Give consumer time to process remaining messages
+        Start-Sleep -Seconds 2
+
+        # Wait for C# consumer
+        Write-Host "Waiting for C# consumer..." -ForegroundColor Yellow
+        Wait-Job $consumerJob -Timeout 10 | Out-Null
+
+        # Get consumer output
+        $consumerOutput = Receive-Job $consumerJob
+
+        # Debug: Print consumer output
+        Write-Host "Consumer output:" -ForegroundColor Yellow
+        $consumerOutput | ForEach-Object { Write-Host $_ }
+        Write-Host ""
+
+        # Parse results
+        $success = $consumerOutput | Select-String "SUCCESS: All messages received with correct sum"
+        $failed = $consumerOutput | Select-String "FAILED:"
+
+        $message = ""
+        $testSuccess = $false
+
+        if ($success) {
+            $testSuccess = $true
+            $message = "C# library successfully consumed all $totalMessages messages from $ProducerCount concurrent C++ producers with perfect integrity"
+        } elseif ($failed) {
+            $failLine = ($failed | Select-Object -First 1).Line
+            $message = $failLine
+        } else {
+            $message = "Could not determine test result"
+        }
+
+        return @{
+            Success = $testSuccess
+            Message = $message
+        }
+
     } finally {
         Get-Job | Remove-Job -Force
         Cleanup-Processes
@@ -218,6 +476,16 @@ if ($Scenario -eq "all" -or $Scenario -eq "csharp-cpp") {
 if ($Scenario -eq "all" -or $Scenario -eq "csharp-csharp") {
     $result = Test-CrossProcess "C# Publisher → C# Subscriber" "Publisher.exe" $csharpPublisher "Subscriber.exe" $csharpSubscriber $MessageCount
     $results += [PSCustomObject]@{ Name = "C# → C#"; Success = $result.Success; Message = $result.Message }
+}
+
+if ($Scenario -eq "all" -or $Scenario -eq "concurrent") {
+    $result = Test-ConcurrentProducers $ConcurrentProducerCount $MessagesPerProducer
+    $results += [PSCustomObject]@{ Name = "Concurrent C++ → C++"; Success = $result.Success; Message = $result.Message }
+}
+
+if ($Scenario -eq "all" -or $Scenario -eq "concurrent-csharp") {
+    $result = Test-ConcurrentProducersCSharpConsumer $ConcurrentProducerCount $MessagesPerProducer
+    $results += [PSCustomObject]@{ Name = "Concurrent C++ → C#"; Success = $result.Success; Message = $result.Message }
 }
 
 # Final summary
