@@ -67,8 +67,8 @@
 param(
     [int]$MessageCount = 100,
     [string]$Scenario = "all",
-    [int]$ConcurrentProducerCount = 100,
-    [int]$MessagesPerProducer = 5
+    [int]$ConcurrentProducerCount = 50,
+    [int]$MessagesPerProducer = 500
 )
 
 $ErrorActionPreference = "Stop"
@@ -86,7 +86,6 @@ Write-Host ""
 Write-Host "Building the project..." -ForegroundColor Yellow
 Push-Location "src"
 try {
-    # Build only the C# sample projects since C++ is already built
     $buildResult = msbuild /t:rebuild /p:Platform=x64 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Build failed!" -ForegroundColor Red
@@ -213,7 +212,7 @@ if ($Scenario -eq "all") {
     Write-Host ""
 }
 
-function Cleanup-Processes {
+function Stop-TestProcesses {
     taskkill /F /IM Producer.exe 2>$null | Out-Null
     taskkill /F /IM Consumer.exe 2>$null | Out-Null
     taskkill /F /IM Publisher.exe 2>$null | Out-Null
@@ -240,7 +239,7 @@ function Test-CrossProcess {
     $queueName = "test-queue-$timestamp"
     Write-Host "Using queue: $queueName" -ForegroundColor Cyan
 
-    Cleanup-Processes
+    Stop-TestProcesses
 
     try {
         # Start Consumer first
@@ -356,7 +355,7 @@ function Test-CrossProcess {
 
     } finally {
         Get-Job | Remove-Job -Force
-        Cleanup-Processes
+        Stop-TestProcesses
     }
 }
 
@@ -396,7 +395,7 @@ function Test-ConcurrentProducers {
     Write-Host "  Event: $eventName" -ForegroundColor White
     Write-Host ""
 
-    Cleanup-Processes
+    Stop-TestProcesses
 
     try {
         # Launch all producers FIRST (they will block waiting for the event)
@@ -432,6 +431,11 @@ function Test-ConcurrentProducers {
         # Wait for all producers to complete
         Write-Host "Waiting for producers..." -ForegroundColor Yellow
         $producerJobs | Wait-Job -Timeout 30 | Out-Null
+        
+        # Check how many producers completed successfully
+        $completedCount = ($producerJobs | Where-Object { $_.State -eq 'Completed' }).Count
+        $runningCount = ($producerJobs | Where-Object { $_.State -eq 'Running' }).Count
+        Write-Host "Producer status: $completedCount completed, $runningCount still running (out of $ProducerCount)" -ForegroundColor Cyan
 
         # Give consumer time to process remaining messages
         Start-Sleep -Seconds 2
@@ -457,7 +461,15 @@ function Test-ConcurrentProducers {
             $failLine = ($failed | Select-Object -First 1).Line
             $message = $failLine
         } else {
-            $message = "Could not determine test result"
+            # Try to extract message count from output
+            Write-Host $consumerOutput
+            $lastMessageLine = $consumerOutput | Select-String "message (\d+)/$totalMessages" | Select-Object -Last 1
+            if ($lastMessageLine -and $lastMessageLine.Matches.Groups.Count -gt 1) {
+                $receivedCount = $lastMessageLine.Matches.Groups[1].Value
+                $message = "TIMEOUT: Consumer received only $receivedCount out of $totalMessages messages before timing out"
+            } else {
+                $message = "TIMEOUT: Consumer did not complete (could not parse message count)"
+            }
         }
 
         return @{
@@ -467,7 +479,7 @@ function Test-ConcurrentProducers {
 
     } finally {
         Get-Job | Remove-Job -Force
-        Cleanup-Processes
+        Stop-TestProcesses
     }
 }
 
@@ -506,7 +518,7 @@ function Test-ConcurrentProducersCSharpConsumer {
     Write-Host "  Event: $eventName" -ForegroundColor White
     Write-Host ""
 
-    Cleanup-Processes
+    Stop-TestProcesses
 
     try {
         # Launch all C++ producers (they will block waiting for the event)
@@ -543,6 +555,66 @@ function Test-ConcurrentProducersCSharpConsumer {
         # Wait for all producers to complete
         Write-Host "Waiting for C++ producers..." -ForegroundColor Yellow
         $producerJobs | Wait-Job -Timeout 30 | Out-Null
+        
+        # Check how many producers completed successfully
+        $completedJobs = $producerJobs | Where-Object { $_.State -eq 'Completed' }
+        $completedCount = $completedJobs.Count
+        $runningCount = ($producerJobs | Where-Object { $_.State -eq 'Running' }).Count
+        $failedCount = ($producerJobs | Where-Object { $_.State -eq 'Failed' }).Count
+        
+        # Check exit codes for completed jobs
+        $successCount = 0
+        $exitCodeFailures = @()
+        foreach ($job in $completedJobs) {
+            $exitCode = (Receive-Job $job -Keep -ErrorAction SilentlyContinue | Select-Object -Last 1).ExitCode
+            if ($null -eq $exitCode) {
+                # Try to get process exit code another way
+                $jobOutput = Receive-Job $job -Keep 2>&1
+                if ($jobOutput -match "SUCCESS:") {
+                    $successCount++
+                } else {
+                    $exitCodeFailures += "Job $($job.Id) may have failed (no clear success marker)"
+                }
+            } elseif ($exitCode -eq 0) {
+                $successCount++
+            } else {
+                $exitCodeFailures += "Job $($job.Id) exited with code $exitCode"
+            }
+        }
+        
+        Write-Host "Producer status: $successCount succeeded (exit 0), $($completedCount - $successCount) completed with errors, $runningCount still running, $failedCount failed (out of $ProducerCount)" -ForegroundColor Cyan
+        
+        if ($exitCodeFailures.Count -gt 0) {
+            Write-Host "Exit code failures:" -ForegroundColor Red
+            $exitCodeFailures | Select-Object -First 10 | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+            
+            # Show full output from failed jobs
+            Write-Host "Full output from failed producers:" -ForegroundColor Red
+            foreach ($failureMsg in ($exitCodeFailures | Select-Object -First 3)) {
+                $jobId = [regex]::Match($failureMsg, "Job (\d+)").Groups[1].Value
+                $job = $producerJobs | Where-Object { $_.Id -eq [int]$jobId } | Select-Object -First 1
+                if ($job) {
+                    Write-Host "--- Job $jobId Full Output ---" -ForegroundColor Yellow
+                    Receive-Job $job -Keep 2>&1 | ForEach-Object { Write-Host "  $_" }
+                }
+            }
+        }
+        
+        # Get any error output from producers
+        $producerErrors = $producerJobs | Receive-Job 2>&1 | Select-String -Pattern "FATAL|error.*failed|exception" -CaseSensitive:$false
+        if ($producerErrors) {
+            Write-Host "Producer errors detected:" -ForegroundColor Red
+            $producerErrors | Select-Object -First 10 | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+        }
+        
+        # Show sample output from first few producers for debugging
+        if ($VerbosePreference -eq 'Continue') {
+            Write-Host "Sample output from first 3 producers:" -ForegroundColor Yellow
+            $producerJobs | Select-Object -First 3 | ForEach-Object {
+                Write-Host "--- Producer Job $($_.Id) ---" -ForegroundColor DarkGray
+                Receive-Job $_ -Keep 2>&1 | Select-Object -Last 15 | ForEach-Object { Write-Host "  $_" }
+            }
+        }
 
         # Give consumer time to process remaining messages
         Start-Sleep -Seconds 2
@@ -579,7 +651,15 @@ function Test-ConcurrentProducersCSharpConsumer {
         } else {
             Write-Host "⚠ Could not find SUCCESS or FAILED in output. Showing last 10 lines:" -ForegroundColor Yellow
             $consumerOutput | Select-Object -Last 10 | ForEach-Object { Write-Host $_ }
-            $message = "Could not determine test result"
+            
+            # Try to extract message count from output
+            $lastMessageLine = $consumerOutput | Select-String "message (\d+)/$totalMessages" | Select-Object -Last 1
+            if ($lastMessageLine -and $lastMessageLine.Matches.Groups.Count -gt 1) {
+                $receivedCount = $lastMessageLine.Matches.Groups[1].Value
+                $message = "TIMEOUT: Consumer received only $receivedCount out of $totalMessages messages before timing out"
+            } else {
+                $message = "TIMEOUT: Consumer did not complete (could not parse message count)"
+            }
         }
 
         return @{
@@ -589,7 +669,7 @@ function Test-ConcurrentProducersCSharpConsumer {
 
     } finally {
         Get-Job | Remove-Job -Force
-        Cleanup-Processes
+        Stop-TestProcesses
     }
 }
 

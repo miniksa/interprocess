@@ -39,10 +39,7 @@ namespace Cloudtoid::Interprocess
         bool TryDequeue(std::span<unsigned char> buffer, std::span<unsigned char>& message) override
         {
             try
-            {
-                // Ensure we see the latest memory state
-                MemoryBarrier();
-                
+            {   
                 auto* header = GetHeader();
                 if (header == nullptr)
                 {

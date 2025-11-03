@@ -109,24 +109,36 @@ int main(int argc, char* argv[])
             int value = startValue + i;
             std::span<const unsigned char> message(reinterpret_cast<const unsigned char*>(&value), sizeof(int));
             
+            // Retry with timeout to detect actual failures
+            int retries = 0;
+            const int maxRetries = 5000; // 5 seconds at 1ms per retry
             while (!publisher->TryEnqueue(message))
             {
-                // Queue full, wait and retry
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                if (++retries > maxRetries)
+                {
+                    std::cerr << "FATAL: Failed to enqueue message after " << maxRetries << " retries" << std::endl;
+                    std::cerr << "Sent " << sent << " out of " << count << " messages before failure" << std::endl;
+                    return 2; // Different exit code for enqueue failure
+                }
+                // Queue full, run hard till we have it
             }
             
             sent++;
             std::cout << "Sent value: " << value << " (" << sent << "/" << count << ")" << std::endl;
-            
-            // Small delay to allow interleaving with other producers
-            std::this_thread::sleep_for(std::chrono::milliseconds(5));
         }
         
         auto endTime = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
         
+        // Verify we sent exactly what we expected
+        if (sent != count)
+        {
+            std::cerr << "FATAL: Message count mismatch! Expected " << count << " but sent " << sent << std::endl;
+            return 3; // Exit code for count mismatch
+        }
+        
         std::cout << std::endl;
-        std::cout << "Range Producer finished!" << std::endl;
+        std::cout << "SUCCESS: Range Producer completed!" << std::endl;
         std::cout << "Sent " << sent << " messages in " << duration << " ms" << std::endl;
         std::cout << "Values sent: " << startValue << " to " << (startValue + count - 1) << std::endl;
         

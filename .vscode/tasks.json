@@ -31,6 +31,15 @@
       "problemMatcher": [],
       "group": {
         "kind": "test",
+      }
+    },
+    {
+      "label": "alltests",
+      "type": "shell",
+      "command": "${workspaceFolder}\\test-comprehensive.ps1",
+      "problemMatcher": [],
+      "group": {
+        "kind": "test",
         "isDefault": true
       }
     }

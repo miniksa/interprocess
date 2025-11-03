@@ -19,6 +19,7 @@
         "xlocale": "cpp",
         "xstring": "cpp",
         "cmath": "cpp",
-        "system_error": "cpp"
+        "system_error": "cpp",
+        "span": "cpp"
     }
 }

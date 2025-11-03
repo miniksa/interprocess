@@ -84,11 +84,7 @@ int main(int argc, char* argv[])
                               << ", Throughput: " << messagesPerSecond << " msg/s)" << std::endl;
                 }
             }
-            else
-            {
-                // Queue is full, wait a bit before retrying
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            }
+            // queue said no, try again.
         }
         
         // Print final summary
