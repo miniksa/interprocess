@@ -109,11 +109,7 @@
   <ItemGroup>
     <ClCompile Include="CircularBufferTests.cpp" />
     <ClCompile Include="QueueTests.cpp" />
-    <ClCompile Include="QueueAllocationTests.cpp" />
-    <ClCompile Include="QueueDebugTests.cpp" />
-    <ClCompile Include="DirectWriteTest.cpp" />
     <ClCompile Include="SemaphoreTests.cpp" />
-    <ClCompile Include="ComprehensiveTests.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
