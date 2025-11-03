@@ -1,3 +1,33 @@
+//******************************************************************************
+// CircularBuffer Comprehensive Test Suite
+//******************************************************************************
+// 
+// Purpose: Comprehensive testing of the CircularBuffer class to protect against
+//          regressions, particularly the template span bug that was fixed.
+//
+// Test Count: 28 tests
+//
+// Categories:
+//   - Basic Functionality: Constructor, pointer arithmetic, offset wrapping
+//   - Write Operations: Span writes, template writes, wrapping, edge cases
+//   - Read Operations: Basic reads, wrapping, truncation, large offsets
+//   - Clear Operations: Basic clear, wrapping, zero-length, full buffer
+//   - Round-Trip Tests: Write/read cycles with wrapping
+//   - Edge Cases: Single-byte buffer, large offsets, full capacity, overwrites
+//   - Regression Tests: Span template fix, offset handling consistency
+//
+// Key Regression Protections:
+//   1. SpanNotWrittenAsObject - CRITICAL test ensuring std::span<T> is written
+//      element-by-element, not as an object. Validates the requires constraint.
+//   2. OffsetHandlingConsistency - Ensures offset wrapping is correct
+//   3. All wrapping tests - Protect against buffer overflow and wrap-around bugs
+//
+// Usage:
+//   Run all: --gtest_filter="CircularBufferTest.*"
+//   Run specific: --gtest_filter="CircularBufferTest.SpanNotWrittenAsObject"
+//
+//******************************************************************************
+
 #include "pch.h"
 #include "CircularBuffer.h"
 #include <vector>

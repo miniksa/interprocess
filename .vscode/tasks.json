@@ -4,11 +4,13 @@
     {
       "label": "build",
       "type": "shell",
-      "command": "dotnet",
+      "command": "msbuild",
       "args": [
-        "build",
-        "${workspaceFolder}/src"
+        "/t:rebuild"
       ],
+      "options": {
+        "cwd": "${workspaceFolder}/src"
+      },
       "group": {
         "kind": "build",
         "isDefault": true
@@ -21,5 +23,16 @@
         "panel": "shared"
       }
     },
+    {
+      "label": "nativetests",
+      "type": "shell",
+      "dependsOn": "build",
+      "command": "${workspaceFolder}\\src\\x64\\Debug\\Interprocess.Native.Static.Tests.exe",
+      "problemMatcher": [],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      }
+    }
   ]
 }

@@ -1,15 +1,49 @@
+################################################################################
 # Comprehensive Cross-Process Message Integrity Test Suite
+################################################################################
 #
-# Tests all scenarios:
-#   - C++ Producer → C++ Consumer
-#   - C++ Producer → C# Subscriber
-#   - C# Publisher → C++ Consumer
-#   - C# Publisher → C# Subscriber
-#   - Multiple Concurrent C++ Producers → Single C++ Consumer
-#   - Multiple Concurrent C++ Producers → Single C# Consumer
+# Purpose: End-to-end integration testing of the Interprocess library across
+#          C++ and C# implementations, validating data integrity, cross-language
+#          interop, and concurrent producer scenarios.
+#
+# Test Scenarios (6 total):
+#   1. C++ Producer → C++ Consumer
+#      - Validates C++ native implementation
+#      - 100 sequential messages (values 0-99)
+#
+#   2. C++ Producer → C# Subscriber
+#      - Tests C++ to C# interop
+#      - Ensures CloudtoidInterprocess C# library can read C++ messages
+#
+#   3. C# Publisher → C++ Consumer
+#      - Tests C# to C++ interop
+#      - Validates C++ can consume C#-produced messages
+#
+#   4. C# Publisher → C# Subscriber
+#      - Validates C# native implementation
+#      - Tests CloudtoidInterprocess library end-to-end
+#
+#   5. Multiple Concurrent C++ Producers → Single C++ Consumer
+#      - Stress test: 100 concurrent producers, 5 messages each (500 total)
+#      - Uses Windows Named Events for true concurrent start
+#      - Validates no data corruption under high concurrency
+#      - Sum validation: ensures all messages received (sum = 124750)
+#
+#   6. Multiple Concurrent C++ Producers → Single C# Consumer
+#      - Cross-language concurrency test
+#      - Validates C# library can handle concurrent C++ producers
+#      - Same concurrency pattern as scenario 5
+#      - C# uses EventWaitHandle (managed .NET API, not P/Invoke)
+#
+# Key Features:
+#   - Sequential Validation: Scenarios 1-4 verify exact message order (0-99)
+#   - Sum Validation: Scenarios 5-6 use arithmetic sequence sum for integrity
+#   - Concurrent Synchronization: Named Events ensure all producers start simultaneously
+#   - Process Isolation: Each test uses unique queue names with timestamps
+#   - Comprehensive Coverage: Tests all 4 language combinations + concurrency
 #
 # Usage:
-#   .\test-comprehensive.ps1                                    # Run all tests
+#   .\test-comprehensive.ps1                                    # Run all 6 tests
 #   .\test-comprehensive.ps1 -Scenario cpp-cpp                  # Run specific test
 #   .\test-comprehensive.ps1 -Scenario concurrent               # Run C++ concurrent test
 #   .\test-comprehensive.ps1 -Scenario concurrent-csharp        # Run C++ → C# concurrent test
@@ -17,6 +51,18 @@
 #   .\test-comprehensive.ps1 -ConcurrentProducerCount 10        # Use 10 concurrent producers
 #
 # Scenarios: all, cpp-cpp, cpp-csharp, csharp-cpp, csharp-csharp, concurrent, concurrent-csharp
+#
+# Prerequisites:
+#   - All C++ projects built (Producer.exe, Consumer.exe, RangeProducer.exe, SumConsumer.exe)
+#   - All C# projects built (Publisher, Subscriber, SumConsumer)
+#   - msbuild in PATH
+#   - .NET 9.0 SDK installed
+#
+# Exit Codes:
+#   0 - All tests passed
+#   1 - One or more tests failed or prerequisites missing
+#
+################################################################################
 
 param(
     [int]$MessageCount = 100,
@@ -80,6 +126,92 @@ foreach ($name in $paths.Keys) {
 
 Write-Host "All executables found!" -ForegroundColor Green
 Write-Host ""
+
+# Run unit test suites when running all scenarios
+if ($Scenario -eq "all") {
+    Write-Host "=== Running Unit Test Suites ===" -ForegroundColor Cyan
+    Write-Host ""
+    
+    # Run C++ GTest suite
+    Write-Host "Running C++ GTest suite..." -ForegroundColor Yellow
+    $gtestExe = "src\x64\Debug\Interprocess.Native.Static.Tests.exe"
+    if (Test-Path $gtestExe) {
+        $gtestOutput = & $gtestExe --gtest_filter="CircularBufferTest.*:QueueTest.*" 2>&1
+        $gtestExitCode = $LASTEXITCODE
+        
+        # Show summary
+        $gtestOutput | Select-String -Pattern "\[==========\]|\[  PASSED  \]|\[  FAILED  \]" | ForEach-Object {
+            if ($_ -match "FAILED") {
+                Write-Host $_ -ForegroundColor Red
+            } else {
+                Write-Host $_ -ForegroundColor Green
+            }
+        }
+        
+        if ($gtestExitCode -ne 0) {
+            Write-Host "C++ GTest suite FAILED!" -ForegroundColor Red
+            Write-Host "Full output:" -ForegroundColor Yellow
+            $gtestOutput | ForEach-Object { Write-Host $_ }
+            throw "C++ unit tests failed"
+        }
+        Write-Host "✅ C++ GTest suite passed" -ForegroundColor Green
+    } else {
+        Write-Host "⚠ C++ GTest suite not found at $gtestExe - skipping" -ForegroundColor Yellow
+    }
+    Write-Host ""
+    
+    # Run .NET tests
+    Write-Host "Running .NET test suite..." -ForegroundColor Yellow
+    Push-Location "src"
+    try {
+        $dotnetTestOutput = dotnet test Interprocess.Tests/Interprocess.Tests.csproj --no-build --verbosity minimal 2>&1
+        
+        # Parse test results from output (ignore vcxproj warnings)
+        $passedLine = $dotnetTestOutput | Select-String "Passed!"
+        $failedCount = 0
+        $testsPassed = $false
+        
+        if ($passedLine -match "Failed:\s+(\d+)") {
+            $failedCount = [int]$matches[1]
+        }
+        if ($passedLine -match "Passed!") {
+            $testsPassed = $true
+        }
+        
+        # Show relevant output (filter out vcxproj MSB4278 warnings)
+        $dotnetTestOutput | Where-Object { $_ -notmatch "MSB4278|VCTargetsPath" } | ForEach-Object {
+            if ($_ -match "Failed!.*Failed:\s+[1-9]") {
+                Write-Host $_ -ForegroundColor Red
+            } elseif ($_ -match "Passed!") {
+                Write-Host $_ -ForegroundColor Green
+            } elseif ($_ -match "\[SKIP\]|Skipped") {
+                Write-Host $_ -ForegroundColor Yellow
+            } elseif ($_ -match "^\s*$") {
+                # Skip empty lines
+            } else {
+                Write-Host $_
+            }
+        }
+        
+        if ($failedCount -gt 0 -or !$testsPassed) {
+            Write-Host ".NET test suite FAILED! ($failedCount test(s) failed)" -ForegroundColor Red
+            throw ".NET unit tests failed"
+        }
+        
+        # Extract test counts
+        if ($passedLine -match "Passed:\s+(\d+)") {
+            $passedCount = $matches[1]
+            Write-Host "✅ .NET test suite passed ($passedCount tests)" -ForegroundColor Green
+        } else {
+            Write-Host "✅ .NET test suite passed" -ForegroundColor Green
+        }
+    } finally {
+        Pop-Location
+    }
+    Write-Host ""
+    Write-Host "=== Starting Integration Tests ===" -ForegroundColor Cyan
+    Write-Host ""
+}
 
 function Cleanup-Processes {
     taskkill /F /IM Producer.exe 2>$null | Out-Null
@@ -422,14 +554,18 @@ function Test-ConcurrentProducersCSharpConsumer {
         # Get consumer output
         $consumerOutput = Receive-Job $consumerJob
 
-        # Debug: Print consumer output
-        Write-Host "Consumer output:" -ForegroundColor Yellow
-        $consumerOutput | ForEach-Object { Write-Host $_ }
-        Write-Host ""
-
-        # Parse results
+        # Parse results first
         $success = $consumerOutput | Select-String "SUCCESS: All messages received with correct sum"
         $failed = $consumerOutput | Select-String "FAILED:"
+
+        # Show filtered output (skip per-message output, show summary only)
+        Write-Host "Consumer output (summary):" -ForegroundColor Yellow
+        $consumerOutput | Where-Object { 
+            $_ -notmatch "Received value:" -and 
+            $_ -notmatch "message \d+/\d+" -and
+            $_ -match "\S"  # Not empty
+        } | ForEach-Object { Write-Host $_ }
+        Write-Host ""
 
         $message = ""
         $testSuccess = $false
@@ -441,6 +577,8 @@ function Test-ConcurrentProducersCSharpConsumer {
             $failLine = ($failed | Select-Object -First 1).Line
             $message = $failLine
         } else {
+            Write-Host "⚠ Could not find SUCCESS or FAILED in output. Showing last 10 lines:" -ForegroundColor Yellow
+            $consumerOutput | Select-Object -Last 10 | ForEach-Object { Write-Host $_ }
             $message = "Could not determine test result"
         }
 

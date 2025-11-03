@@ -15,6 +15,10 @@
         "Xunit"
     ],
     "files.associations": {
-        "chrono": "cpp"
+        "chrono": "cpp",
+        "xlocale": "cpp",
+        "xstring": "cpp",
+        "cmath": "cpp",
+        "system_error": "cpp"
     }
 }

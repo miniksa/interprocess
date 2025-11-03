@@ -1,3 +1,40 @@
+//******************************************************************************
+// Queue Comprehensive Test Suite
+//******************************************************************************
+//
+// Purpose: Comprehensive testing of Queue, Publisher, and Subscriber functionality
+//          to ensure data integrity, capacity management, and cross-language interop.
+//
+// Test Count: 19 tests
+//
+// Categories:
+//   - Basic Enqueue/Dequeue: Single message, empty queue, sequential messages
+//   - Capacity Tests: Many small messages, capacity enforcement
+//   - Circular Buffer Wrapping: 100 iterations of wrap-around behavior
+//   - Data Integrity: Byte pattern preservation, all byte values (0-255)
+//   - Variable Message Sizes: 1 to 256+ bytes in various sizes
+//   - Multiple Instances: Multiple subscribers and publishers
+//   - Buffer Boundaries: Exact boundary alignment, size mismatches
+//   - Edge Cases: 1000 alternating ops, 10000 rapid operations
+//   - Regression Tests: Non-aligned sizes, clean initialization
+//
+// Key Data Integrity Tests:
+//   1. DataIntegrityAllByteValues - Tests all 256 byte values (0-255) are preserved
+//   2. OddEvenPatternDetection - Validates byte patterns aren't corrupted
+//   3. MessageAlignmentPreserved - Tests non-aligned sizes (7, 8, 9 bytes)
+//   4. NoGarbageDataInNewQueue - Ensures clean queue initialization
+//
+// Key Wrapping/Capacity Tests:
+//   1. CircularBufferWrapping - 100 iterations to catch edge cases
+//   2. CapacityRespected - Validates queue capacity limits
+//   3. LargeNumberOfSmallMessages - 500+ messages stress test
+//
+// Usage:
+//   Run all: --gtest_filter="QueueTest.*"
+//   Run specific: --gtest_filter="QueueTest.DataIntegrityAllByteValues"
+//
+//******************************************************************************
+
 #include "pch.h"
 #include "QueueFactory.h"
 #include "QueueOptions.h"
@@ -16,7 +53,7 @@ class QueueTest : public ::testing::Test
 protected:
     void SetUp() override
     {
-        // Generate unique queue name for each test
+        // Generate unique queue name for each test to ensure isolation
         queueName = L"test-queue-" + std::to_wstring(
             std::chrono::system_clock::now().time_since_epoch().count());
     }
