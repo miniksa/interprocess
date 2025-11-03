@@ -1,9 +1,11 @@
 #pragma once
 
 #include <format>
+#include <limits>
 #include <string>
 
 #include "IInterprocessSemaphoreReleaser.h"
+#include "IInterprocessSemaphoreWaiter.h"
 #include "MemoryFileWindows.h"
 
 namespace Cloudtoid::Interprocess::Semaphore::Windows

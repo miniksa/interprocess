@@ -2,6 +2,7 @@
 
 #include "IQueueFactory.h"
 #include "Publisher.h"
+#include "Subscriber.h"
 
 namespace Cloudtoid::Interprocess
 {
@@ -21,6 +22,12 @@ namespace Cloudtoid::Interprocess
         IPublisher* CreatePublisher(const QueueOptions& options) override
         {
             return new Publisher(options);
+        }
+
+        // <inheritdoc/>
+        ISubscriber* CreateSubscriber(const QueueOptions& options) override
+        {
+            return new Subscriber(options);
         }
     };
     static_assert(sizeof(void*) == 8, "64-bit architecture required");

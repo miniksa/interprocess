@@ -13,5 +13,13 @@
         "Timespec",
         "Xeon",
         "Xunit"
-    ]
+    ],
+    "files.associations": {
+        "chrono": "cpp",
+        "xlocale": "cpp",
+        "xstring": "cpp",
+        "cmath": "cpp",
+        "system_error": "cpp",
+        "span": "cpp"
+    }
 }

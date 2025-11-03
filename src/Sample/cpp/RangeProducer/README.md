@@ -1,0 +1,1 @@
+NOTE: Waits for an event to be set before pushing values into the queue

@@ -16,7 +16,7 @@ namespace Cloudtoid::Interprocess
         explicit Queue(const QueueOptions& options)
         {
             _view = new MemoryView(options);
-            _buffer = new CircularBuffer(sizeof(QueueHeader) + _view->Pointer(), options.GetCapacity());
+            _buffer = new CircularBuffer(_view->Pointer() + sizeof(QueueHeader), options.GetCapacity());
         }
 
         virtual ~Queue()

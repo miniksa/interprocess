@@ -21,4 +21,7 @@ namespace Cloudtoid::Interprocess
         IMemoryFile() = default;
         void* _mappedFile = nullptr;
     };
+
+    // Even pure virtual destructors need an implementation
+    inline IMemoryFile::~IMemoryFile() = default;
 } // namespace Cloudtoid::Interprocess
